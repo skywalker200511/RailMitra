@@ -12,6 +12,9 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
+// Trust reverse proxy (required for Vercel + express-rate-limit)
+app.set('trust proxy', 1);
+
 // Create railway data provider
 const provider = createProvider();
 console.log(`[INIT] Railway provider: ${provider.getProviderName()} (${provider.isLiveProvider() ? 'LIVE' : 'MOCK'} data)`);
