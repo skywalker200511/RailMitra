@@ -31,9 +31,9 @@ function TrainCard({ trainNumber, trainName, departureTime, arrivalTime, duratio
         <strong>{trainNumber} {trainName}</strong>
       </div>
       <div className="train-route">
-        <span>{from} {departureTime}</span>
+        <span>{typeof from === 'object' ? (from.code || from.name || JSON.stringify(from)) : from} {departureTime}</span>
         <span className="arrow">──────→</span>
-        <span>{to} {arrivalTime}</span>
+        <span>{typeof to === 'object' ? (to.code || to.name || JSON.stringify(to)) : to} {arrivalTime}</span>
       </div>
       <div className="train-meta">
         Duration: {duration} {distance ? `| ${distance}` : ''}
