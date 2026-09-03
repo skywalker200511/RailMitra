@@ -27,10 +27,5 @@ export function logApiRequest({ endpoint, trainNumber, from, to, date, status, r
     console.error(`[API FAILURE] ${endpoint} (${responseTime}ms) - ${error || 'Unknown error'}`);
   }
   
-  // File logging
-  try {
-    fs.appendFileSync(logFile, logLine);
-  } catch (err) {
-    console.error('Failed to write to api_requests.log:', err);
-  }
+  // File logging disabled on Vercel (read-only filesystem)
 }

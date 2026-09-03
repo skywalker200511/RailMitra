@@ -151,7 +151,7 @@ CONVERSATION RULES:
 
         console.log(`[AGENT] Tool calls (iteration ${iterations}):`, functionCalls.map(c => c.name));
 
-        const functionResponses = [];
+        let toolResultsText = 'Here are the results of the tool calls you requested:\n\n';
 
         for (const call of functionCalls) {
           toolsUsed.push(call.name);
@@ -167,16 +167,11 @@ CONVERSATION RULES:
             }
           }
 
-          functionResponses.push({
-            functionResponse: {
-              name: call.name,
-              response: { result: JSON.parse(JSON.stringify(result)) },
-            },
-          });
+          toolResultsText += `Tool Name: ${call.name}\nResult: ${JSON.stringify(result)}\n\n`;
         }
 
-        // Send tool results back to Gemini for interpretation
-        chatResult = await chat.sendMessage(functionResponses);
+        // Send tool results back to Gemini as a standard text message to avoid API role errors
+        chatResult = await chat.sendMessage(toolResultsText);
         response = chatResult.response;
       }
 
