@@ -153,20 +153,21 @@ CONVERSATION RULES:
 
         let toolResultsText = 'Here are the results of the tool calls you requested:\n\n';
 
-        for (const call of functionCalls) {
+        const toolPromises = functionCalls.map(async (call) => {
           toolsUsed.push(call.name);
-
-          // Execute the tool against the railway provider
           const result = await this.toolExecutor.execute(call.name, call.args);
+          return { call, result };
+        });
 
-          // Extract train results for structured UI display
+        const completedTools = await Promise.all(toolPromises);
+
+        for (const { call, result } of completedTools) {
           if (call.name === 'searchTrains' && !result.error) {
             const trains = result.trains || result;
             if (Array.isArray(trains)) {
               trainResults.push(...trains);
             }
           }
-
           toolResultsText += `Tool Name: ${call.name}\nResult: ${JSON.stringify(result)}\n\n`;
         }
 
