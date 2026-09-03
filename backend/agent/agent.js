@@ -165,7 +165,25 @@ CONVERSATION RULES:
           if (call.name === 'searchTrains' && !result.error) {
             const trains = result.trains || result;
             if (Array.isArray(trains)) {
-              trainResults.push(...trains);
+              const mappedTrains = trains.map(t => {
+                // If the train object is nested (RailRadar format)
+                if (t.train && t.train.number) {
+                  return {
+                    trainNumber: t.train.number,
+                    trainName: t.train.name,
+                    departureTime: t.from?.departure,
+                    arrivalTime: t.to?.arrival,
+                    duration: t.duration ? `${Math.floor(t.duration/60)}h ${t.duration%60}m` : undefined,
+                    distance: t.distance ? `${t.distance} km` : undefined,
+                    from: t.from?.code || t.from,
+                    to: t.to?.code || t.to,
+                    classes: t.train.classes,
+                    ...t
+                  };
+                }
+                return t;
+              });
+              trainResults.push(...mappedTrains);
             }
           } else if (call.name === 'getSeatAvailability' && !result.error) {
             const targetTrain = trainResults.find(t => t.trainNumber === call.args.trainNumber);
