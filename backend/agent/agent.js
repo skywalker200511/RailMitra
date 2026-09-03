@@ -135,7 +135,7 @@ CONVERSATION RULES:
       const toolsUsed = [];
       const trainResults = [];
       let iterations = 0;
-      const MAX_ITERATIONS = 3; // Reduced from 5 to 3 to prevent Vercel 30s timeouts
+      const MAX_ITERATIONS = 5;
 
       // Tool calling loop — Gemini may request multiple rounds of tool calls
       while (iterations < MAX_ITERATIONS) {
@@ -162,23 +162,29 @@ CONVERSATION RULES:
         const completedTools = await Promise.all(toolPromises);
 
         for (const { call, result } of completedTools) {
-          let optimizedResult = result;
-          
           if (call.name === 'searchTrains' && !result.error) {
             const trains = result.trains || result;
             if (Array.isArray(trains)) {
               trainResults.push(...trains);
-              // Massively reduce payload to AI to prevent 30-second timeouts
-              optimizedResult = trains.map(t => ({
-                number: t.trainNumber,
-                name: t.trainName,
-                dep: t.departureTime,
-                arr: t.arrivalTime
-              })).slice(0, 15);
+            }
+          } else if (call.name === 'getSeatAvailability' && !result.error) {
+            const targetTrain = trainResults.find(t => t.trainNumber === call.args.trainNumber);
+            if (targetTrain) {
+               if (!targetTrain.availability) targetTrain.availability = {};
+               
+               let statusText = 'Unknown';
+               const availArray = Array.isArray(result) ? result : (result.availability || []);
+               if (availArray.length > 0) {
+                 statusText = availArray[0].availablityStatus || availArray[0].status || 'Unknown';
+               } else if (result.status) {
+                 statusText = result.status;
+               }
+
+               targetTrain.availability[call.args.classType] = statusText;
             }
           }
 
-          toolResultsText += `Tool Name: ${call.name}\nResult: ${JSON.stringify(optimizedResult)}\n\n`;
+          toolResultsText += `Tool Name: ${call.name}\nResult: ${JSON.stringify(result)}\n\n`;
         }
 
         // Send tool results back to Gemini as a standard text message to avoid API role errors
