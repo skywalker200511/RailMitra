@@ -162,13 +162,23 @@ CONVERSATION RULES:
         const completedTools = await Promise.all(toolPromises);
 
         for (const { call, result } of completedTools) {
+          let optimizedResult = result;
+          
           if (call.name === 'searchTrains' && !result.error) {
             const trains = result.trains || result;
             if (Array.isArray(trains)) {
               trainResults.push(...trains);
+              // Massively reduce payload to AI to prevent 30-second timeouts
+              optimizedResult = trains.map(t => ({
+                number: t.trainNumber,
+                name: t.trainName,
+                dep: t.departureTime,
+                arr: t.arrivalTime
+              })).slice(0, 15);
             }
           }
-          toolResultsText += `Tool Name: ${call.name}\nResult: ${JSON.stringify(result)}\n\n`;
+
+          toolResultsText += `Tool Name: ${call.name}\nResult: ${JSON.stringify(optimizedResult)}\n\n`;
         }
 
         // Send tool results back to Gemini as a standard text message to avoid API role errors
