@@ -20,11 +20,42 @@ function App() {
   const [sessionId, setSessionId] = useState('');
 
   useEffect(() => {
-    setSessionId(generateSessionId());
-    setMessages([
-      { role: 'assistant', content: 'Hello! I am RailMitra. How can I help you with your train journey today?' }
-    ]);
+    const savedMessages = localStorage.getItem('railmitra_messages');
+    const savedSessionId = localStorage.getItem('railmitra_session');
+    
+    if (savedSessionId) {
+      setSessionId(savedSessionId);
+    } else {
+      setSessionId(generateSessionId());
+    }
+
+    if (savedMessages) {
+      try {
+        setMessages(JSON.parse(savedMessages));
+      } catch (e) {
+        setMessages([{ role: 'assistant', content: 'Hello! I am RailMitra. How can I help you with your train journey today?' }]);
+      }
+    } else {
+      setMessages([{ role: 'assistant', content: 'Hello! I am RailMitra. How can I help you with your train journey today?' }]);
+    }
   }, []);
+
+  // Save to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('railmitra_messages', JSON.stringify(messages));
+    }
+    if (sessionId) {
+      localStorage.setItem('railmitra_session', sessionId);
+    }
+  }, [messages, sessionId]);
+
+  const clearChat = () => {
+    localStorage.removeItem('railmitra_messages');
+    localStorage.removeItem('railmitra_session');
+    setSessionId(generateSessionId());
+    setMessages([{ role: 'assistant', content: 'Hello! I am RailMitra. How can I help you with your train journey today?' }]);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,7 +88,10 @@ function App() {
     <div className="app-container">
       <header className="app-header">
         <h1>🚂 RailMitra</h1>
-        <DataSourceBadge source={dataSource} />
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button onClick={clearChat} style={{ background: 'none', border: '1px solid #fff', color: '#fff', padding: '0.25rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>🗑️ Clear Chat</button>
+          <DataSourceBadge source={dataSource} />
+        </div>
       </header>
       
       <main className="app-main">
