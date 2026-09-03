@@ -129,7 +129,8 @@ CONVERSATION RULES:
       // Start chat with history
       const chat = this.model.startChat({ history: session.history });
 
-      let response = await chat.sendMessage(message);
+      let chatResult = await chat.sendMessage(message);
+      let response = chatResult.response;
       let responseText = '';
       const toolsUsed = [];
       const trainResults = [];
@@ -175,7 +176,8 @@ CONVERSATION RULES:
         }
 
         // Send tool results back to Gemini for interpretation
-        response = await chat.sendMessage(functionResponses);
+        chatResult = await chat.sendMessage(functionResponses);
+        response = chatResult.response;
       }
 
       if (iterations >= MAX_ITERATIONS && !responseText) {
