@@ -80,25 +80,27 @@ app.use(errorHandler);
 
 const PORT = config.port;
 
-app.listen(PORT, () => {
-  console.log('');
-  console.log('╔══════════════════════════════════════════════╗');
-  console.log('║       🚂 RailMitra — AI Railway Agent        ║');
-  console.log('╠══════════════════════════════════════════════╣');
-  console.log(`║  Server:    http://localhost:${PORT}             ║`);
-  console.log(`║  Provider:  ${(provider.getProviderName()).padEnd(32)}║`);
-  console.log(`║  Data:      ${(provider.isLiveProvider() ? '🟢 LIVE' : '🟠 DEMO / MOCK').padEnd(32)}║`);
-  console.log(`║  AI Model:  ${config.gemini.model.padEnd(32)}║`);
-  console.log('╚══════════════════════════════════════════════╝');
-  console.log('');
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log('');
+    console.log('╔══════════════════════════════════════════════╗');
+    console.log('║       🚂 RailMitra — AI Railway Agent        ║');
+    console.log('╠══════════════════════════════════════════════╣');
+    console.log(`║  Server:    http://localhost:${PORT}             ║`);
+    console.log(`║  Provider:  ${(provider.getProviderName()).padEnd(32)}║`);
+    console.log(`║  Data:      ${(provider.isLiveProvider() ? '🟢 LIVE' : '🟠 DEMO / MOCK').padEnd(32)}║`);
+    console.log(`║  AI Model:  ${config.gemini.model.padEnd(32)}║`);
+    console.log('╚══════════════════════════════════════════════╝');
+    console.log('');
 
-  if (!provider.isLiveProvider()) {
-    console.log('⚠️  Running with MOCK data. Set RAILRADAR_API_KEY in .env for live data.');
-  }
-  if (!config.gemini.apiKey || config.gemini.apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
-    console.log('⚠️  No Gemini API key configured. Set GEMINI_API_KEY in .env for AI features.');
-  }
-  console.log('');
-});
+    if (!provider.isLiveProvider()) {
+      console.log('⚠️  Running with MOCK data. Set RAILRADAR_API_KEY in .env for live data.');
+    }
+    if (!config.gemini.apiKey || config.gemini.apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
+      console.log('⚠️  No Gemini API key configured. Set GEMINI_API_KEY in .env for AI features.');
+    }
+    console.log('');
+  });
+}
 
 export default app;
