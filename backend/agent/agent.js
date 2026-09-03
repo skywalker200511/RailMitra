@@ -135,7 +135,7 @@ CONVERSATION RULES:
       const toolsUsed = [];
       const trainResults = [];
       let iterations = 0;
-      const MAX_ITERATIONS = 5;
+      const MAX_ITERATIONS = 3; // Reduced from 5 to 3 to prevent Vercel 30s timeouts
 
       // Tool calling loop — Gemini may request multiple rounds of tool calls
       while (iterations < MAX_ITERATIONS) {
