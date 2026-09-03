@@ -38,19 +38,7 @@ app.use(express.json({ limit: '10kb' }));
 // Rate limiting
 app.use(generalLimiter);
 
-// Request timeout (30 seconds)
-app.use((req, res, next) => {
-  req.setTimeout(30000, () => {
-    res.status(408).json({
-      success: false,
-      error: {
-        code: 'REQUEST_TIMEOUT',
-        message: 'Request timed out. Please try again.',
-      },
-    });
-  });
-  next();
-});
+// (Timeout middleware removed for Vercel serverless compatibility)
 
 // ─── Routes ──────────────────────────────────────────────────
 
