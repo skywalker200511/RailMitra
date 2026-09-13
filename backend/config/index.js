@@ -28,7 +28,7 @@ const config = {
   // AI Provider (Google Gemini)
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || '',
-    model: process.env.AI_MODEL || 'gemini-3.6-flash',
+    model: process.env.AI_MODEL || 'gemini-3.5-flash-lite',
   },
 
   // Rate Limiting
