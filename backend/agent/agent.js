@@ -134,7 +134,7 @@ CONVERSATION RULES:
       let response = chatResult.response;
       let responseText = '';
       const toolsUsed = [];
-      let trainResults = session.lastTrainResults ? [...session.lastTrainResults] : [];
+      let trainResults = [];
       let iterations = 0;
       const MAX_ITERATIONS = 8;
 
@@ -265,8 +265,6 @@ CONVERSATION RULES:
         responseText = 'I completed my search but reached the maximum number of tool calls. Here is what I found based on the data retrieved so far.';
       }
 
-      // Save train results to session so follow-ups can use them
-      session.lastTrainResults = trainResults;
       // Update session history
       session.history = await chat.getHistory();
 
