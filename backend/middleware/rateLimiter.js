@@ -25,7 +25,7 @@ export const generalLimiter = rateLimit({
  */
 export const agentChatLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 20,
+  max: 200, // Increased for testing on Render
   standardHeaders: true,
   legacyHeaders: false,
   message: {
