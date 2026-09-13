@@ -16,6 +16,7 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStartTime, setLoadingStartTime] = useState(null);
   const [dataSource, setDataSource] = useState('live'); // 'live' or 'mock'
   const [sessionId, setSessionId] = useState('');
 
@@ -65,6 +66,7 @@ function App() {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
+    setLoadingStartTime(Date.now());
 
     try {
       const data = await sendMessage(userMessage.content, sessionId);
@@ -81,6 +83,7 @@ function App() {
       setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${error.message}` }]);
     } finally {
       setIsLoading(false);
+      setLoadingStartTime(null);
     }
   };
 
@@ -95,7 +98,7 @@ function App() {
       </header>
       
       <main className="app-main">
-        <ChatInterface messages={messages} isLoading={isLoading} />
+        <ChatInterface messages={messages} isLoading={isLoading} loadingStartTime={loadingStartTime} />
       </main>
 
       <footer className="app-footer">

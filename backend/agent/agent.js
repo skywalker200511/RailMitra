@@ -68,12 +68,13 @@ CRITICAL RULES:
    Common mappings: Mumbai=CSMT/BCT/BDTS/LTT, Delhi=NDLS/DLI/NZM/ANVT
 5. Dates must be YYYY-MM-DD format when calling tools.
 
-SEARCH STRATEGY (minimize API calls):
-1. Call searchTrains() first to find candidate trains
-2. Filter results by departure time, train type client-side (no API call needed)
-3. Call getSeatAvailability() ONLY for the top 3-5 relevant candidates
-4. Call getFare() only if user specifically asks about pricing
-5. DO NOT check availability for every class on every train
+SEARCH STRATEGY — FOLLOW THESE RULES EXACTLY:
+1. Call searchTrains() ONCE to find trains. If the user mentions multiple stations (e.g. CSMT and Dadar), pick the ONE station that is most likely to have more trains.
+2. From the search results, pick the TOP 5 trains only. Do NOT check more than 5 trains. When picking, PRIORITIZE well-known popular trains over obscure ones. Prefer trains whose names contain: Mandovi, Tutari, Konkan Kanya, Jan Shatabdi, Shatabdi, Rajdhani, Tejas, Vande Bharat, Duronto, Garib Rath, Ganpati Special, Madgaon Express. AVOID picking random trains from far-away states (e.g. Surat, Gujarat, Rajasthan specials) unless the user specifically asks for them.
+3. IMPORTANT: The getSeatAvailability API returns a 14-day calendar of ALL dates in a SINGLE call. You do NOT need to call it separately for each date. One call per train per class is enough.
+4. Call getSeatAvailability() for each of the 5 trains, for each class the user asked for. That means maximum 10 calls (5 trains × 2 classes). Do all of them in ONE SINGLE batch.
+5. Call getFare() only if user specifically asks about pricing.
+6. NEVER call getTrainRoute() or getLiveStatus() unless the user explicitly asks for route or live status.
 
 CONVERSATION RULES:
 - Ask clarifying questions ONLY when essential info (origin or destination) is missing
@@ -133,9 +134,9 @@ CONVERSATION RULES:
       let response = chatResult.response;
       let responseText = '';
       const toolsUsed = [];
-      const trainResults = [];
+      let trainResults = session.lastTrainResults ? [...session.lastTrainResults] : [];
       let iterations = 0;
-      const MAX_ITERATIONS = 5;
+      const MAX_ITERATIONS = 8;
 
       // Tool calling loop — Gemini may request multiple rounds of tool calls
       while (iterations < MAX_ITERATIONS) {
@@ -153,18 +154,33 @@ CONVERSATION RULES:
 
         let toolResultsText = 'Here are the results of the tool calls you requested:\n\n';
 
-        const toolPromises = functionCalls.map(async (call) => {
+        const completedTools = [];
+        for (let i = 0; i < functionCalls.length; i++) {
+          const call = functionCalls[i];
           toolsUsed.push(call.name);
-          const result = await this.toolExecutor.execute(call.name, call.args);
-          return { call, result };
-        });
-
-        const completedTools = await Promise.all(toolPromises);
+          let result = await this.toolExecutor.execute(call.name, call.args);
+          
+          // Only retry on 429 rate limit — NOT on 404 (train not found in database)
+          if (result.error && String(result.error).includes('429')) {
+            console.log(`[AGENT] Rate limited on ${call.name}(${call.args.trainNumber || ''}), retrying in 3s...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            result = await this.toolExecutor.execute(call.name, call.args);
+          }
+          
+          completedTools.push({ call, result });
+          
+          // Delay 2000ms between calls to stay under RailRadar's free-tier rate limit
+          if (i < functionCalls.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
 
         for (const { call, result } of completedTools) {
           if (call.name === 'searchTrains' && !result.error) {
             const trains = result.trains || result;
             if (Array.isArray(trains)) {
+              // Clear previous results if we're doing a new search
+              trainResults = [];
               const mappedTrains = trains.map(t => {
                 // If the train object is nested (RailRadar format)
                 if (t.train && t.train.number) {
@@ -186,23 +202,58 @@ CONVERSATION RULES:
               trainResults.push(...mappedTrains);
             }
           } else if (call.name === 'getSeatAvailability' && !result.error) {
-            const targetTrain = trainResults.find(t => t.trainNumber === call.args.trainNumber);
+            let targetTrain = trainResults.find(t => t.trainNumber === call.args.trainNumber);
+            // If the train isn't in our current results (e.g. follow-up query), create a basic card for it
+            if (!targetTrain) {
+              targetTrain = { trainNumber: call.args.trainNumber, trainName: `Train ${call.args.trainNumber}` };
+              trainResults.push(targetTrain);
+            }
+
             if (targetTrain) {
                if (!targetTrain.availability) targetTrain.availability = {};
                
-               let statusText = 'Unknown';
-               const availArray = Array.isArray(result) ? result : (result.availability || []);
-               if (availArray.length > 0) {
-                 statusText = availArray[0].availablityStatus || availArray[0].status || 'Unknown';
-               } else if (result.status) {
-                 statusText = result.status;
+               // Support RailRadar live format (calendar array)
+               if (result.calendar && Array.isArray(result.calendar)) {
+                 targetTrain.availability[call.args.classType] = result.calendar.slice(0, 3).map(c => ({
+                   date: new Date(c.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+                   status: c.status
+                 }));
+               } else {
+                 // Support mock format (availability array)
+                 const availArray = Array.isArray(result) ? result : (result.availability || []);
+                 if (availArray.length > 0) {
+                   targetTrain.availability[call.args.classType] = availArray.slice(0, 3).map(c => ({
+                     date: new Date(c.availablityDate || c.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+                     status: c.availablityStatus || c.status
+                   }));
+                 } else if (result.status) {
+                   targetTrain.availability[call.args.classType] = result.status;
+                 }
                }
+            }
+          } else if (call.name === 'getSeatAvailability' && result.error) {
+            // Even on failure, show something on the card so it's never empty
+            let targetTrain = trainResults.find(t => t.trainNumber === call.args.trainNumber);
+            if (!targetTrain) {
+              targetTrain = { trainNumber: call.args.trainNumber, trainName: `Train ${call.args.trainNumber}` };
+              trainResults.push(targetTrain);
+            }
 
-               targetTrain.availability[call.args.classType] = statusText;
+            if (targetTrain) {
+               if (!targetTrain.availability) targetTrain.availability = {};
+               if (String(result.error).includes('404')) {
+                 targetTrain.availability[call.args.classType] = 'No data available (may be special/unreserved train or API sync issue)';
+               } else {
+                 targetTrain.availability[call.args.classType] = 'Could not fetch — server busy';
+               }
             }
           }
 
-          toolResultsText += `Tool Name: ${call.name}\nResult: ${JSON.stringify(result)}\n\n`;
+          if (result.error) {
+            toolResultsText += `Tool Name: ${call.name}\nResult: ERROR - ${result.error}. YOU MUST TELL THE USER THAT SEAT DATA COULD NOT BE FETCHED DUE TO A SERVER ERROR. DO NOT MAKE UP SEAT AVAILABILITY.\n\n`;
+          } else {
+            toolResultsText += `Tool Name: ${call.name}\nResult: ${JSON.stringify(result)}\n\n`;
+          }
         }
 
         // Send tool results back to Gemini as a standard text message to avoid API role errors
@@ -214,12 +265,14 @@ CONVERSATION RULES:
         responseText = 'I completed my search but reached the maximum number of tool calls. Here is what I found based on the data retrieved so far.';
       }
 
+      // Save train results to session so follow-ups can use them
+      session.lastTrainResults = trainResults;
       // Update session history
       session.history = await chat.getHistory();
 
       return {
         reply: responseText || 'I processed your request but have no additional information to share.',
-        trainResults,
+        trainResults: trainResults.filter(t => t.availability && Object.keys(t.availability).length > 0),
         toolsUsed: [...new Set(toolsUsed)],
         dataSource: this.provider.isLiveProvider() ? 'live' : 'mock',
         sessionId,

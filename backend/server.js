@@ -62,16 +62,32 @@ app.use('/api/agent', createAgentRoutes(agent));
 // Direct train data API
 app.use('/api/trains', createTrainRoutes(provider));
 
-// ─── Error Handling ──────────────────────────────────────────
+// ─── Error Handling & Frontend Serving ──────────────────────────────────────────
 
-app.use(notFoundHandler);
-app.use(errorHandler);
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve frontend build (if it exists)
+const frontendPath = path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendPath));
+
+// For API routes, handle 404
+app.use('/api', notFoundHandler);
+app.use('/api', errorHandler);
+
+// For all other routes, serve React app (client-side routing)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
 
 // ─── Start Server ────────────────────────────────────────────
 
 const PORT = config.port;
 
-if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+if (!process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log('');
     console.log('╔══════════════════════════════════════════════╗');
